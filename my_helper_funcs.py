@@ -7,6 +7,7 @@ import platform
 import numpy as np
 import time
 import gymnasium as gym
+from datetime import date
 
 
 # Helper function to save plots
@@ -69,24 +70,40 @@ def add_noise_to_obs(obs, noise_std=0.01):
 # obs = add_noise_to_obs(obs, noise_std=0.01)
 
 
-def evaluate_model(model, env_id, num_episodes, reward_shaper=None, render=False, show_applied_conditions=False):
-    ''' Function to evaluate the model
-    This function evaluates the model over a specified number of episodes
-    and returns the average reward.'''
-
-    # Create Evaluation Environment
-    if render:
-        env = gym.make(env_id, render_mode='human')
-    else:
-        env = gym.make(env_id)
-
+def evaluate_model(model, env_id, num_episodes, reward_shaper=None, render=False,
+                   show_applied_conditions=False, record_video=False, experiment_num=None):
+    """
+    Evaluates the model over a specified number of episodes and returns the average reward.
+    Optionally renders or records the last episode as a video.
+    """
     all_episode_final_rewards = []
-    for _ in range(num_episodes):
+    today = str(date.today())
+
+    video_directory = os.path.join(env_id, "eval_videos", today)
+    os.makedirs(video_directory, exist_ok=True)
+
+    for ep in range(num_episodes):
+        # Use RecordVideo wrapper only for the last episode if recording is enabled
+        if record_video and ep == num_episodes - 1:
+            env = gym.make(env_id, render_mode="rgb_array")
+            env = gym.wrappers.RecordVideo(
+                env,
+                video_folder=video_directory,
+                name_prefix=f"experiment{experiment_num}_{model.num_timesteps}steps_eval",
+                episode_trigger=lambda i: True,
+                disable_logger=True
+            )
+        else:
+            render_mode = "human" if render else None
+            env = gym.make(env_id, render_mode=render_mode)
+
         obs, _ = env.reset()
         if reward_shaper:
             reward_shaper.reset()
+
         done = False
         episode_reward = 0
+
         while not done:
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, terminated, truncated, _ = env.step(action)
@@ -94,17 +111,18 @@ def evaluate_model(model, env_id, num_episodes, reward_shaper=None, render=False
 
             if reward_shaper:
                 reward, applied_conditions = reward_shaper.shape(reward, obs)
-            # Optional: log condition triggers
                 if applied_conditions and show_applied_conditions:
                     for cond in applied_conditions:
-                        print(f"Condition met: {cond['description']} | Obs Value: {cond['obs_value']:.2f} | Reward Modifier: {cond['reward_modifier']} | Reward: {reward}") # noqa
+                        print(f"Condition met: {cond['description']} | Obs Value: {cond['obs_value']:.2f} | "
+                              f"Reward Modifier: {cond['reward_modifier']} | Reward: {reward}")
 
             episode_reward += reward
-            if render:
+
+            if render and not record_video:
                 env.render()
                 time.sleep(0.02)
 
         all_episode_final_rewards.append(episode_reward)
-    env.close()
-    # Return the average of all episode final rewards
+        env.close()
+
     return np.mean(all_episode_final_rewards)

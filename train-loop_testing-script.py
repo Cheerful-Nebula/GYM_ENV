@@ -6,23 +6,18 @@ from datetime import date
 from reward_shaping_mountaincar import MountainCarProgressRewardShaper # noqa
 
 # Settings
-num_evaluation_episodes = 5
+num_evaluation_episodes = 2
 network_policy = "MlpPolicy"
 learning_algo_list = ['DQN', 'A2C', 'PPO']
-training_increment = 20000
-total_training_steps = 500000
+training_increment = 25000
+total_training_steps = 50000
 env_id = 'MountainCar-v0'  # CartPole-v1 'LunarLander-v3' MountainCar-v0 Acrobot-v1 Pendulum-v1(continous, no DQN)
+experiment_num = 3
 
-# Define shaping conditions
+# Define shaping conditions, use 'prev_obs' for previous observation as key for 'threshold'
 shaping_conditions = [
-    {'index': 1, 'operation': 'abs>=', 'threshold': 0.01, 'reward_modifier': 2, 'description': '+2 : abs(velocity) >= 0.01'},
-    {'index': 1, 'operation': 'abs>=', 'threshold': 0.019, 'reward_modifier': 4, 'description': '+6 : abs(velocity) >= 0.019'},
-    {'index': 1, 'operation': 'abs>=', 'threshold': 0.029, 'reward_modifier': 8, 'description': '+14 : abs(velocity) >= 0.029'},
-    {'index': 1, 'operation': 'abs>=', 'threshold': 0.039, 'reward_modifier': 16, 'description': '+30 : abs(velocity) >= 0.039'},
-    {'index': 1, 'operation': 'abs>=', 'threshold': 0.049, 'reward_modifier': 32, 'description': '+62 : abs(velocity) >= 0.049'},
-    {'index': 0, 'operation': '>=', 'threshold': -0.2, 'reward_modifier': 20, 'description': '+20 : position >= -0.2'},
-    {'index': 0, 'operation': '>=', 'threshold': 0.15, 'reward_modifier': 60, 'description': '+60 : position >= 0.15'},
-    {'index': 0, 'operation': '>=', 'threshold': 0.5, 'reward_modifier': 100, 'description': '+100 : position >= 0.5'}
+    {'index': 0, 'operation': '>', 'threshold': 'prev_obs', 'reward_modifier': 2, 'description': '+2 : position > prev_position\ni.e. moving to right'}, # noqa
+    {'index': 0, 'operation': '<', 'threshold': 'prev_obs', 'reward_modifier': -0.5, 'description': '-0.5 : position > prev_position\ni.e. moving to left'} # noqa
 ]
 
 # Initialize the reward shaper object
@@ -64,7 +59,9 @@ for learning_algo in learning_algo_list:
             num_episodes=num_evaluation_episodes,
             reward_shaper=reward_shaper,
             render=False,
-            show_applied_conditions=False
+            show_applied_conditions=False,
+            record_video=False,
+            experiment_num=experiment_num
             )
         evaluation_rewards.append(avg_reward)
         timesteps_recorded.append(current_timesteps)
@@ -86,5 +83,5 @@ for learning_algo in learning_algo_list:
 # Plot all the curves, then Save final combined plot
 plot_all_curves_with_note(final_curves, shaping_conditions=shaping_conditions)
 today = date.today()
-plot_filename = f"{env_id}_{today}_experiment02"
+plot_filename = f"{env_id}_{today}_experiment{experiment_num}"
 save_reward_plot_os_specific(plot_filename, env_id)

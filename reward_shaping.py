@@ -67,7 +67,7 @@ OPERATIONS = {
 }
 
 
-def apply_reward_conditions(reward, obs, conditions):
+def apply_reward_conditions(reward, obs, conditions, prev_obs=None):
     """
     Applies reward modifications based on provided conditions and logs the effects.
 
@@ -94,6 +94,11 @@ def apply_reward_conditions(reward, obs, conditions):
 
         if idx is not None and 0 <= idx < len(obs):
             obs_value = obs[idx]
+            if threshold == 'prev_obs':
+                if prev_obs is None:
+                    break
+                else:
+                    threshold = prev_obs[idx]
             op_func = OPERATIONS.get(operation)
             if op_func:
                 try:
@@ -136,14 +141,21 @@ class RewardShaper:
         Each condition must include 'index', 'operation', 'threshold', 'modifier', and optionally 'description'.
         """
         self.conditions = conditions
-    # reset method is a placeholder for any reset logic needed
-    # in any environment specific variant of the RewardShaper class
+        self.prev_obs = None
+        # Initialize previous observation to None
 
     def reset(self):
-        pass
+        self.prev_obs = None  # Clear at the start of a new episode
 
     def shape(self, reward, obs):
         """
         Apply the reward shaping logic to the current reward and observation.
         """
-        return apply_reward_conditions(reward, obs, self.conditions)
+        # Apply shaping logic using the stored previous observation
+        shaped_reward, applied_conditions = apply_reward_conditions(
+            reward, obs, self.conditions, self.prev_obs
+        )
+        # Update internal state
+        self.prev_obs = obs.copy() if hasattr(obs, 'copy') else list(obs)
+
+        return shaped_reward, applied_conditions
