@@ -1,0 +1,49 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# MacOS files
+.DS_Store
+
+# Virtual environment
+venv/
+env/
+*.env
+*.venv
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Pytest cache
+.pytest_cache/
+
+# VSCode settings
+.vscode/
+
+# Environment variables or secrets
+.env
+
+# MyPy
+.mypy_cache/
+
+# Coverage reports
+htmlcov/
+.coverage
+
+# Logs
+*.log
+
+# Model checkpoints or output files (optional)
+*.pth
+*.pt
+*.ckpt
+
+# Python egg files
+*.egg
+*.egg-info/
+dist/
+build/
