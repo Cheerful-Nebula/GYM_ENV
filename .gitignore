@@ -47,3 +47,9 @@ htmlcov/
 *.egg-info/
 dist/
 build/
+
+
+__pycache__/
+*.pyc
+*.png
+eval_videos/

@@ -14,21 +14,17 @@ total_training_steps = 50000
 env_id = 'MountainCar-v0'  # CartPole-v1 'LunarLander-v3' MountainCar-v0 Acrobot-v1 Pendulum-v1(continous, no DQN)
 experiment_num = 3
 
-# Define shaping conditions, use 'prev_obs' for previous observation as key for 'threshold'
+# Define shaping conditions, use 'prev_obs' for previous observation as value to compare against in 'threshold'
 shaping_conditions = [
     {'index': 0, 'operation': '>', 'threshold': 'prev_obs', 'reward_modifier': 2, 'description': '+2 : position > prev_position\ni.e. moving to right'}, # noqa
     {'index': 0, 'operation': '<', 'threshold': 'prev_obs', 'reward_modifier': -0.5, 'description': '-0.5 : position > prev_position\ni.e. moving to left'} # noqa
 ]
 
 # Initialize the reward shaper object
-'''if env_id == 'MountainCar-v0':
-    reward_shaper = MountainCarProgressRewardShaper()
-else:
-    reward_shaper = RewardShaper(shaping_conditions)'''
 reward_shaper = RewardShaper(shaping_conditions)
+
 # Initialize lists to store curves
-all_curves = []
-final_curves = []
+eval_curves = []
 
 # Main Loop
 for learning_algo in learning_algo_list:
@@ -66,22 +62,17 @@ for learning_algo in learning_algo_list:
         evaluation_rewards.append(avg_reward)
         timesteps_recorded.append(current_timesteps)
 
-        all_curves.append({
-            "x": timesteps_recorded.copy(),
-            "y": evaluation_rewards.copy(),
-            "label": learning_algo
-        })
-
         print(f"Training {learning_algo} for {training_increment} additional timesteps (total: {current_timesteps})...")
         model.learn(total_timesteps=training_increment, reset_num_timesteps=False)
 
-    # Saving last entry in all_curves
-    # dictionary of all points for current algo
-    final_curves.append(all_curves[-1])
-    all_curves.clear()
-    print(final_curves, "\n")
+    eval_curves.append({
+        "x": timesteps_recorded.copy(),
+        "y": evaluation_rewards.copy(),
+        "label": learning_algo
+    })
+
 # Plot all the curves, then Save final combined plot
-plot_all_curves_with_note(final_curves, shaping_conditions=shaping_conditions)
+plot_all_curves_with_note(eval_curves, shaping_conditions=shaping_conditions)
 today = date.today()
 plot_filename = f"{env_id}_{today}_experiment{experiment_num}"
 save_reward_plot_os_specific(plot_filename, env_id)
