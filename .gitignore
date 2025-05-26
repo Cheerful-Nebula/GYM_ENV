@@ -53,3 +53,4 @@ __pycache__/
 *.pyc
 *.png
 eval_videos/
+rl_roadmap_weeks_to_doom.md
