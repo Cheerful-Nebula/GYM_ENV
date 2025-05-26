@@ -7,7 +7,7 @@ import platform
 import numpy as np
 import time
 import gymnasium as gym
-from datetime import date
+from position_tracking import PositionTracker
 
 
 # ------------------------------
@@ -29,23 +29,16 @@ def save_reward_plot_os_specific(plot_filename, env_id: str):
         return False
 
 
-# Function to plot all curves with a note
-def plot_all_curves_with_note(curves, shaping_conditions=None):
+# Function to plot all reward curves with a note
+def plot_all_curves_with_note(curves, env_id, shaping_conditions=None):
     plt.figure(figsize=(12, 8))
 
     for curve in curves:
-
-        plt.plot(curve["x"], curve["y"], marker='o', label=curve["label"])
-        # Highlight best point for each curve
-        # best_idx = np.argmax(curve["y"])
-        # best_timestep = curve["x"][best_idx]
-        # best_reward = curve["y"][best_idx]
-
-        # plt.scatter(best_timestep, best_reward, s=60, label=f"{curve['label']} Best", zorder=5)
+        plt.plot(curve["x"], curve["y"], marker='+', label=curve["label"])
 
     plt.xlabel("Total Training Timesteps")
     plt.ylabel("Average Evaluation Reward")
-    plt.title("Comparison of Algorithms and Reward Shaping Variants", fontsize=16)
+    plt.title(f"Comparison of Algorithms and Reward Shaping Variants on {env_id}", fontsize=16)
     plt.grid(True)
     plt.legend(loc='upper left', fontsize=10)
 
@@ -72,8 +65,7 @@ def add_noise_to_obs(obs, noise_std=0.01):
 # EVALUATION FUNCTION
 # ------------------------------
 def evaluate_model(model, env_id, num_episodes, reward_shaper=None, render=False,
-                   show_applied_conditions=False, record_video=False, experiment_num=None,
-                   position_indices=None):
+                   show_applied_conditions=False, tracker: PositionTracker = None):
     """
     Evaluates a trained RL model over multiple episodes and tracks selected position stats (e.g., x, y).
 
@@ -82,46 +74,33 @@ def evaluate_model(model, env_id, num_episodes, reward_shaper=None, render=False
         avg_position_stats (dict): A dictionary for each tracked observation index with average, min, max stats
     """
     all_episode_final_rewards = []
+    if tracker:
+        tracker.start_rollout()
 
-    # Prepare dictionary to collect per-index position stats
-    position_stats = {i: [] for i in (position_indices or [])}
+    for _ in range(num_episodes):
+        if tracker:
+            tracker.start_episode()
 
-    today = str(date.today())
-    video_directory = os.path.join(env_id, "eval_videos", today)
-    os.makedirs(video_directory, exist_ok=True)
-
-    for ep in range(num_episodes):
-        # Handle rendering or video recording for last episode
-        if record_video and ep == num_episodes - 1:
-            env = gym.make(env_id, render_mode="rgb_array")
-            env = gym.wrappers.RecordVideo(
-                env,
-                video_folder=video_directory,
-                name_prefix=f"experiment{experiment_num}_{model.num_timesteps}steps_eval",
-                episode_trigger=lambda i: True,
-                disable_logger=True
-            )
-        else:
-            render_mode = "human" if render else None
-            env = gym.make(env_id, render_mode=render_mode)
+        render_mode = "human" if render else None
+        env = gym.make(env_id, render_mode=render_mode)
 
         obs, _ = env.reset()
         if reward_shaper:
             reward_shaper.reset()
+        if tracker:
+            tracker.track_episode(obs)
 
         done = False
         episode_reward = 0
-        episode_positions = {i: [] for i in (position_indices or [])}  # Per-episode position tracker
 
         while not done:
-            # Track specific observation values (e.g., x, y) across timesteps
-            if position_indices:
-                for i in position_indices:
-                    episode_positions[i].append(obs[i])
 
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
+
+            if tracker:
+                tracker.track_episode(obs)
 
             # Optional reward shaping
             if reward_shaper:
@@ -133,7 +112,7 @@ def evaluate_model(model, env_id, num_episodes, reward_shaper=None, render=False
 
             episode_reward += reward
 
-            if render and not record_video:
+            if render:
                 env.render()
                 time.sleep(0.02)
 
@@ -141,58 +120,11 @@ def evaluate_model(model, env_id, num_episodes, reward_shaper=None, render=False
         all_episode_final_rewards.append(episode_reward)
 
         # Summarize episode position stats (mean, min, max of each tracked observation)
-        if position_indices:
-            for i in position_indices:
-                episode_arr = np.array(episode_positions[i])
-                position_stats[i].append({
-                    "avg": float(np.mean(episode_arr)),
-                    "min": float(np.min(episode_arr)),
-                    "max": float(np.max(episode_arr))
-                })
-
+        if tracker:
+            tracker.end_episode(terminated)
         env.close()
 
-    # Restructure data so that we average across all episodes per stat type
-    avg_position_stats = {}
-    for i, stats_list in position_stats.items():
-        avg_position_stats[i] = {
-            "avg": float(np.mean([s["avg"] for s in stats_list])),
-            "min": float(np.mean([s["min"] for s in stats_list])),
-            "max": float(np.mean([s["max"] for s in stats_list]))
-        }
+    if tracker:
+        tracker.end_rollout(model.num_timesteps)
 
-    return np.mean(all_episode_final_rewards), avg_position_stats
-
-# ------------------------------
-# GENERALIZED POSITION PLOTTING FUNCTION
-# ------------------------------
-
-
-def plot_position_curves_with_note(curves, y_label="Position Stat", title="Position Statistic Trends", notes=None):
-    """
-    Plots average or other statistic (min, max) over time for position-based metrics.
-
-    Args:
-        curves: list of dicts with 'x', 'y', and 'label' fields
-        y_label: string label for Y-axis (e.g., 'Avg X Pos')
-        title: title of the plot
-        notes: Optional string note or metadata (e.g., shaping rules) to display on figure
-    """
-    plt.figure(figsize=(12, 8))
-
-    for curve in curves:
-        plt.plot(curve["x"], curve["y"], marker='o', label=curve["label"])
-
-    plt.xlabel("Total Training Timesteps")
-    plt.ylabel(y_label)
-    plt.title(title, fontsize=16)
-    plt.grid(True)
-    plt.legend(loc='upper left', fontsize=10)
-
-    if notes:
-        plt.gcf().text(
-            0.02, 0.02, notes,
-            fontsize=8, color="black", ha="left", va="bottom",
-            bbox=dict(facecolor="white", alpha=1, edgecolor="black")
-        )
-    plt.show()
+    return np.mean(all_episode_final_rewards), tracker
