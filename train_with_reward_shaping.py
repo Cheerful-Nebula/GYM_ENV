@@ -1,4 +1,5 @@
 import gymnasium as gym
+import ale_py
 from stable_baselines3 import DQN, PPO, A2C
 from my_helper_funcs import plot_all_curves_with_note, evaluate_model
 from my_helper_funcs import save_reward_plot_os_specific
@@ -10,12 +11,12 @@ from datetime import date
 # Settings
 num_evaluation_episodes = 10
 num_rollouts = 10
-network_policy = "MlpPolicy"
+network_policy = "CnnPolicy" # "MlpPolicy"
 learning_algo_list = ['DQN', 'A2C', 'PPO']  # ['DQN', 'A2C', 'PPO']
 training_timestep_increment = 2048
-env_id = 'Acrobot-v1'  # CartPole-v1 'LunarLander-v3' MountainCar-v0 Acrobot-v1 Pendulum-v1(continous, no DQN)
+env_id = 'ALE/Breakout-v5'  # CartPole-v1 'LunarLander-v3' MountainCar-v0 Acrobot-v1 Pendulum-v1(continous, no DQN)
 experiment_num = 1
-target_obs_indices = [0, 2]
+target_obs_indices = [0]
 
 # Define shaping conditions, use 'prev_obs' to use previous observation as value to compare against in 'threshold'
 shaping_conditions = [
@@ -46,7 +47,7 @@ for learning_algo in learning_algo_list:
         # Choose or load model
         if model is None:
             if learning_algo == 'DQN':
-                model = DQN(network_policy, env, verbose=0)
+                model = DQN(network_policy, env, verbose=0,buffer_size=100000)
                 tracker = PositionTracker(target_obs_indices, experiment_num, learning_algo, env_id)
 
             elif learning_algo == 'A2C':
