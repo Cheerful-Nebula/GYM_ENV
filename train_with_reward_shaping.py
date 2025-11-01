@@ -68,7 +68,7 @@ for learning_algo in Config.learning_algo_list:
             env_id=Config.env_id,
             num_episodes=Config.num_evaluation_episodes,
             reward_shaper=reward_shaper,
-            render=False,
+            render='human',
             show_applied_conditions=False,  # print statement when a reward condition is triggered
             tracker=tracker
             )
