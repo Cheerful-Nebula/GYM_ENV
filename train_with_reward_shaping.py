@@ -1,22 +1,14 @@
 import gymnasium as gym
-import ale_py
+import ale_py # ignore
+from stable_baselines3.common.atari_wrappers import AtariWrapper
 from stable_baselines3 import DQN, PPO, A2C
 from my_helper_funcs import plot_all_curves_with_note, evaluate_model
 from my_helper_funcs import save_reward_plot_os_specific
 from reward_shaping import RewardShaper
 from position_tracking import PositionTracker
 from datetime import date
+from config import Config
 
-
-# Settings
-num_evaluation_episodes = 10
-num_rollouts = 10
-network_policy = "CnnPolicy" # "MlpPolicy"
-learning_algo_list = ['DQN', 'A2C', 'PPO']  # ['DQN', 'A2C', 'PPO']
-training_timestep_increment = 2048
-env_id = 'ALE/Breakout-v5'  # CartPole-v1 'LunarLander-v3' MountainCar-v0 Acrobot-v1 Pendulum-v1(continous, no DQN)
-experiment_num = 1
-target_obs_indices = [0]
 
 # Define shaping conditions, use 'prev_obs' to use previous observation as value to compare against in 'threshold'
 shaping_conditions = [
@@ -32,43 +24,49 @@ eval_curves = []
 today = date.today()
 
 # Main Loop
-for learning_algo in learning_algo_list:
+for learning_algo in Config.learning_algo_list:
     evaluation_rewards = []
     timesteps_recorded = []
     position_curves = []
 
     # Initialize the environment
-    env = gym.make(env_id)
+    env = gym.make(Config.env_id)
     model = None  # Initialize model outside the loop
 
+    if Config.env_id.startswith('ALE/'):
+        # Models 'look' at pixels for 'ALE' environments, so we need to wrap the env 
+        # in this wrapper, which automatically grayscales, resizes, and stacks frames
+        env = AtariWrapper(env)
+        Config.network_policy = "CnnPolicy"
+    
     print(f"Starting training for {learning_algo}...\n")
 
-    for current_timesteps in range(0, training_timestep_increment * num_rollouts, training_timestep_increment):
+    for current_timesteps in range(0, Config.training_timestep_increment * Config.num_rollouts, Config.training_timestep_increment):
         # Choose or load model
         if model is None:
             if learning_algo == 'DQN':
-                model = DQN(network_policy, env, verbose=0,buffer_size=100000)
-                tracker = PositionTracker(target_obs_indices, experiment_num, learning_algo, env_id)
+                model = DQN(Config.network_policy, env, verbose=1, buffer_size=100000)
+                tracker = PositionTracker(Config.target_obs_indices, Config.experiment_num, learning_algo, Config.env_id)
 
             elif learning_algo == 'A2C':
-                model = A2C(network_policy, env, verbose=0)
-                tracker = PositionTracker(target_obs_indices, experiment_num, learning_algo, env_id)
+                model = A2C(Config.network_policy, env, verbose=1)
+                tracker = PositionTracker(Config.target_obs_indices, Config.experiment_num, learning_algo, Config.env_id)
 
             elif learning_algo == 'PPO':
-                model = PPO(network_policy, env, verbose=0)
-                tracker = PositionTracker(target_obs_indices, experiment_num, learning_algo, env_id)
+                model = PPO(Config.network_policy, env, verbose=1)
+                tracker = PositionTracker(Config.target_obs_indices, Config.experiment_num, learning_algo, env_id)
         else:
             # The model already exists, so we continue training it
             pass
 
-        print(f"Training {learning_algo} for additional {training_timestep_increment} timesteps (total: {model.num_timesteps + training_timestep_increment})...")  # noqa
-        model.learn(total_timesteps=training_timestep_increment, reset_num_timesteps=False)
+        print(f"Training {learning_algo} for additional {Config.training_timestep_increment} timesteps (total: {model.num_timesteps + training_timestep_increment})...")  # noqa
+        model.learn(total_timesteps=Config.training_timestep_increment, reset_num_timesteps=False)
 
         # Run evaluation loop, returns average reward of all episodes final rewards
         avg_reward, tracker = evaluate_model(
             model=model,
-            env_id=env_id,
-            num_episodes=num_evaluation_episodes,
+            env_id=Config.env_id,
+            num_episodes=Config.num_evaluation_episodes,
             reward_shaper=reward_shaper,
             render=False,
             show_applied_conditions=False,  # print statement when a reward condition is triggered
@@ -98,6 +96,6 @@ for learning_algo in learning_algo_list:
     # This line is where training/evaluation loop for each algorithm ends --------------------
 
 # Plot all the curves, then Save final combined plot
-plot_all_curves_with_note(eval_curves, env_id, shaping_conditions=shaping_conditions)
-plot_filename = f"{today}_experiment{experiment_num}"
-save_reward_plot_os_specific(plot_filename, env_id)
+plot_all_curves_with_note(eval_curves, Config.env_id, shaping_conditions=shaping_conditions)
+plot_filename = f"{today}_experiment{Config.experiment_num}"
+save_reward_plot_os_specific(plot_filename, Config.env_id)
