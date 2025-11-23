@@ -1,5 +1,5 @@
 import gymnasium as gym
-import ale_py # ignore
+# import ale_py  # ignore
 from stable_baselines3.common.atari_wrappers import AtariWrapper
 from stable_baselines3 import DQN, PPO, A2C
 from my_helper_funcs import plot_all_curves_with_note, evaluate_model
@@ -34,11 +34,11 @@ for learning_algo in Config.learning_algo_list:
     model = None  # Initialize model outside the loop
 
     if Config.env_id.startswith('ALE/'):
-        # Models 'look' at pixels for 'ALE' environments, so we need to wrap the env 
+        # Models 'look' at pixels for 'ALE' environments, so we need to wrap the env
         # in this wrapper, which automatically grayscales, resizes, and stacks frames
         env = AtariWrapper(env)
         Config.network_policy = "CnnPolicy"
-    
+
     print(f"Starting training for {learning_algo}...\n")
 
     for current_timesteps in range(0, Config.training_timestep_increment * Config.num_rollouts, Config.training_timestep_increment):
@@ -54,12 +54,12 @@ for learning_algo in Config.learning_algo_list:
 
             elif learning_algo == 'PPO':
                 model = PPO(Config.network_policy, env, verbose=1)
-                tracker = PositionTracker(Config.target_obs_indices, Config.experiment_num, learning_algo, env_id)
+                tracker = PositionTracker(Config.target_obs_indices, Config.experiment_num, learning_algo, Config.env_id)
         else:
             # The model already exists, so we continue training it
             pass
 
-        print(f"Training {learning_algo} for additional {Config.training_timestep_increment} timesteps (total: {model.num_timesteps + training_timestep_increment})...")  # noqa
+        print(f"Training {learning_algo} for additional {Config.training_timestep_increment} timesteps (total: {model.num_timesteps + Config.training_timestep_increment})...")  # noqa
         model.learn(total_timesteps=Config.training_timestep_increment, reset_num_timesteps=False)
 
         # Run evaluation loop, returns average reward of all episodes final rewards
