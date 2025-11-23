@@ -1,6 +1,6 @@
 import ast
 import json
-from typing import Any, List
+from typing import Any
 
 import gymnasium as gym
 import streamlit as st
@@ -121,7 +121,7 @@ def main():
 
         col4, col5 = st.columns([1, 2])
         with col4:
-            c_reward_modifier = st.number_input("Reward Mod", value=0.0, format="%.4f")
+            c_reward_modifier = st.number_input("Reward Mod", value=0.0, format="%.2f")
         with col5:
             c_description = st.text_input("Description", placeholder="e.g., Avoid tilting")
 
