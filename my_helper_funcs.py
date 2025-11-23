@@ -8,6 +8,7 @@ import numpy as np
 import time
 import gymnasium as gym
 from position_tracking import PositionTracker
+import torch
 
 
 # ------------------------------
@@ -128,3 +129,20 @@ def evaluate_model(model, env_id, num_episodes, reward_shaper=None, render=False
         tracker.end_rollout(model.num_timesteps)
 
     return np.mean(all_episode_final_rewards), tracker
+
+
+# ------------------------------
+# UTILITY FUNCTIONS
+# ------------------------------
+
+def get_device():
+    """
+    Returns the most powerful available device.
+    Priority: CUDA (Nvidia) > MPS (Apple Metal) > CPU
+    """
+    if torch.cuda.is_available():
+        return "cuda"
+    elif torch.backends.mps.is_available():
+        return "mps"
+    else:
+        return "cpu"
